@@ -27,13 +27,19 @@ type sdkLogger interface {
 const noLogging = 0
 
 //infoLogging minimal logging messages
-const infoLogging = 1
+const errorLogging = 1
+
+//infoLogging minimal logging messages
+const warnLogging = 2
+
+//infoLogging minimal logging messages
+const infoLogging = 3
 
 //debugLogging some logging messages
-const debugLogging = 2
+const debugLogging = 4
 
 //verboseLogging all logging messages
-const verboseLogging = 3
+const verboseLogging = 5
 
 //defaultSDKLogger the default implementation of the sdkLogger
 type defaultSDKLogger struct {
@@ -41,6 +47,8 @@ type defaultSDKLogger struct {
 	verboseLogger       *log.Logger
 	debugLogger         *log.Logger
 	infoLogger          *log.Logger
+	warnLogger          *log.Logger
+	errorLogger         *log.Logger
 	nullLogger          *log.Logger
 }
 
@@ -76,6 +84,8 @@ func newSDKLogger() (defaultSDKLogger, error) {
 	logger.verboseLogger = log.New(os.Stderr, "VERBOSE ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
 	logger.debugLogger = log.New(os.Stderr, "DEBUG ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
 	logger.infoLogger = log.New(os.Stderr, "INFO ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+	logger.warnLogger = log.New(os.Stderr, "WARN ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+	logger.errorLogger = log.New(os.Stderr, "ERROR ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
 	logger.nullLogger = log.New(ioutil.Discard, "", log.Ldate|log.Lmicroseconds|log.Lshortfile)
 
 	configured, isLogEnabled := os.LookupEnv("OCI_GO_SDK_DEBUG")
@@ -89,6 +99,12 @@ func newSDKLogger() (defaultSDKLogger, error) {
 		switch strings.ToLower(configured) {
 		case "null":
 			logger.currentLoggingLevel = noLogging
+			break
+		case "e", "error":
+			logger.currentLoggingLevel = errorLogging
+			break
+		case "w", "warn":
+			logger.currentLoggingLevel = warnLogging
 			break
 		case "i", "info":
 			logger.currentLoggingLevel = infoLogging
@@ -117,6 +133,10 @@ func (l defaultSDKLogger) getLoggerForLevel(logLevel int) *log.Logger {
 	switch logLevel {
 	case noLogging:
 		return l.nullLogger
+	case errorLogging:
+		return l.errorLogger
+	case warnLogging:
+		return l.warnLogger
 	case infoLogging:
 		return l.infoLogger
 	case debugLogging:
@@ -185,6 +205,14 @@ func (l defaultSDKLogger) Log(logLevel int, format string, v ...interface{}) err
 	logger := l.getLoggerForLevel(logLevel)
 	logger.Output(4, fmt.Sprintf(format, v...))
 	return nil
+}
+
+func Errorf(format string, v ...interface{}) {
+	defaultLogger.Log(errorLogging, format, v...)
+}
+
+func Warnf(format string, v ...interface{}) {
+	defaultLogger.Log(warnLogging, format, v...)
 }
 
 //Logln logs v appending a new line at the end
